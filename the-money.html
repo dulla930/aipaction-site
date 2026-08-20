@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Money — Israel Lobby Money to Every Member of Congress | AIP</title>
+<meta name="description" content="Searchable database of what every member of Congress has received from pro-Israel PACs and their donors, compiled from FEC filings.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;700;800&family=Oswald:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<link rel="icon" type="image/png" href="assets/logo-mark.png">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body data-page="money">
+
+<section class="hero" style="padding-bottom:36px">
+  <div class="wrap">
+    <p class="kicker">The Money Database</p>
+    <h1>Look them <span class="accent">up.</span></h1>
+    <p class="lead sub">What every member of Congress has taken from the Israel lobby over their career: direct PAC donations, earmarked contributions, and independent expenditures spent on their behalf. All of it from FEC filings.</p>
+  </div>
+</section>
+
+<section style="padding-top:32px">
+  <div class="wrap">
+    <div class="controls">
+      <input id="q" type="search" placeholder="Search a name, state, or district (e.g. Schumer, TX, NY-16)…">
+      <select id="fParty">
+        <option value="">All parties</option>
+        <option value="D">Democrats</option>
+        <option value="R">Republicans</option>
+        <option value="I">Independents</option>
+      </select>
+      <select id="fState"></select>
+      <select id="fSeat">
+        <option value="">Senate + House</option>
+        <option value="SEN">Senate only</option>
+        <option value="HOUSE">House only</option>
+      </select>
+    </div>
+    <p class="dbmeta">Showing <b id="dbShown">0</b> of <b id="dbTotal">0</b> tracked members and candidates &middot; Click a column to sort &middot; Click <b>Card</b> to generate a shareable graphic.</p>
+    <div class="tablewrap">
+      <table class="db">
+        <thead>
+          <tr>
+            <th data-sort="amount">Rank</th>
+            <th data-sort="name">Name</th>
+            <th data-sort="party">Party</th>
+            <th data-sort="state">Seat</th>
+            <th data-sort="amount">Israel lobby money <span class="arrow">▼</span></th>
+            <th>Share</th>
+          </tr>
+        </thead>
+        <tbody id="dbBody"></tbody>
+      </table>
+    </div>
+    <button class="btn ghost loadmore" id="loadMore">Show more</button>
+
+    <div class="sources">
+      <h3>Methodology &amp; source</h3>
+      <p class="dim">Figures are career totals from pro-Israel PACs and their large donors: direct and earmarked PAC donations to candidates, plus independent expenditures (ads, mailers, organizing) made on their behalf. Data is compiled from <a href="https://www.fec.gov" target="_blank" rel="noopener">Federal Election Commission</a> filings, as of July 5, 2026. "$0 — refuses lobby $" marks members with no pro-Israel PAC money on record. "Not listed" means no total is published yet for that member. All 50 state delegations are covered. Spot an error? Email us with the filing and we'll fix it within 24 hours.</p>
+    </div>
+  </div>
+</section>
+
+<section class="capture">
+  <div class="wrap">
+    <h2>New entries every week.</h2>
+    <p>Get new database updates and ready-to-post graphics in your inbox.</p>
+    <form class="subscribe">
+      <input type="email" name="email" placeholder="you@email.com" required>
+      <button type="submit">Subscribe</button>
+    </form>
+  </div>
+</section>
+
+<div class="modal" id="cardModal">
+  <div class="inner">
+    <canvas id="cardCanvas" width="2160" height="2160"></canvas>
+    <input type="hidden" id="cardName">
+    <div class="row">
+      <button class="btn" id="dlCard" style="flex:1">Download PNG</button>
+      <button class="btn ghost" data-close style="flex:1">Close</button>
+    </div>
+    <p class="dim" style="font-size:12px;margin-top:10px">2160×2160 — official congressional photo loads automatically when available.</p>
+  </div>
+</div>
+
+<script src="assets/data.js"></script>
+<script src="assets/photos.js"></script>
+<script src="assets/site.js"></script>
+</body>
+</html>

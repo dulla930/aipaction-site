@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Card Factory — AIP (internal)</title>
+<meta name="robots" content="noindex,nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;700;800&family=Oswald:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<link rel="icon" type="image/png" href="assets/logo-mark.png">
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/jszip.min.js"></script>
+</head>
+<body data-page="">
+
+<section class="hero" style="padding-bottom:36px">
+  <div class="wrap">
+    <p class="kicker">Internal tool</p>
+    <h1>Card <span class="accent">factory.</span></h1>
+    <p class="lead sub">Batch-generate share cards as a zip of PNGs. Pick a set, hit generate, post all week. This page is noindexed; it's for you, not visitors.</p>
+  </div>
+</section>
+
+<section style="padding-top:32px">
+  <div class="wrap">
+    <div class="controls">
+      <select id="setPick">
+        <option value="top25">Top 25 recipients</option>
+        <option value="top50">Top 50 recipients</option>
+        <option value="clean">All "$0 — refuses lobby money"</option>
+        <option value="senate">All senators</option>
+        <option value="state">One state…</option>
+      </select>
+      <select id="statePick" style="display:none"></select>
+      <button class="btn" id="go">Generate zip</button>
+    </div>
+    <p class="dim" id="status">Ready.</p>
+    <div class="tablewrap" style="margin-top:14px">
+      <table class="db"><tbody id="preview"></tbody></table>
+    </div>
+  </div>
+</section>
+
+<!-- hidden canvas + modal shell used by the shared generator -->
+<div class="modal" id="cardModal" style="display:none">
+  <div class="inner">
+    <canvas id="cardCanvas" width="2160" height="2160"></canvas>
+    <input type="hidden" id="cardName">
+    <button id="dlCard" style="display:none"></button>
+    <button data-close style="display:none"></button>
+  </div>
+</div>
+
+<script src="assets/data.js"></script>
+<script src="assets/photos.js"></script>
+<script src="assets/site.js"></script>
+<script>
+(function(){
+  const $ = s => document.querySelector(s);
+  const list = window.AIP.enriched, ranked = window.AIP.ranked;
+  const states = [...new Set(list.map(m=>m.state))].sort();
+  $("#statePick").innerHTML = states.map(s=>`<option>${s}</option>`).join("");
+  $("#setPick").addEventListener("change", ()=> $("#statePick").style.display = $("#setPick").value==="state" ? "" : "none");
+
+  function pick(){
+    switch ($("#setPick").value){
+      case "top25":  return ranked.slice(0,25);
+      case "top50":  return ranked.slice(0,50);
+      case "clean":  return list.filter(m=>m.amount===0 && m.clean);
+      case "senate": return list.filter(m=>m.seat==="SEN");
+      case "state":  return list.filter(m=>m.state===$("#statePick").value);
+    }
+  }
+
+  $("#go").addEventListener("click", async ()=>{
+    const set = pick();
+    const zip = new JSZip();
+    const canvas = $("#cardCanvas");
+    $("#preview").innerHTML = "";
+    for (let i=0; i<set.length; i++){
+      const m = set[i];
+      $("#status").textContent = `Rendering ${i+1}/${set.length}: ${m.name}…`;
+      await window.AIP.drawCard(m);
+      const png = canvas.toDataURL("image/png").split(",")[1];
+      const fname = ($("#cardName").value || ("card-"+i)) + ".png";
+      zip.file(fname, png, {base64:true});
+      $("#preview").insertAdjacentHTML("beforeend",
+        `<tr><td>${i+1}</td><td><strong>${m.name}</strong></td><td>${m.seat==="SEN"?m.state+" · Senate":m.seat}</td><td class="amt">${m.amount===null?"—":"$"+m.amount.toLocaleString()}</td><td>${fname}</td></tr>`);
+    }
+    $("#status").textContent = "Zipping…";
+    const blob = await zip.generateAsync({type:"blob"});
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "aip-cards-" + $("#setPick").value + ".zip";
+    a.click();
+    $("#status").textContent = `Done — ${set.length} cards downloaded.`;
+  });
+})();
+</script>
+</body>
+</html>
