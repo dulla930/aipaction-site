@@ -1,0 +1,51 @@
+# AIP — scheduled FEC data refresh
+# Runs on the 16th of Jan/Apr/Jul/Oct (day after FEC quarterly filing deadlines)
+# and can be triggered manually from the Actions tab.
+#
+# Setup (one time):
+#   1. Push this folder to a GitHub repo, connect the repo to Netlify (or
+#      GitHub Pages) so pushes auto-deploy.
+#   2. Repo Settings -> Secrets and variables -> Actions -> add FEC_API_KEY
+#      (free key from https://api.open.fec.gov/developers/).
+#   3. Run tools/fec_pipeline.py --resolve locally once, review
+#      tools/committees.json, commit it with reviewed:true.
+#
+# The workflow opens a PULL REQUEST with the refreshed numbers and the diff
+# report rather than pushing straight to main — you glance at the deltas and
+# click merge. Numbers about named politicians should always get one human look.
+
+name: Refresh FEC data
+on:
+  schedule:
+    - cron: "0 12 16 1,4,7,10 *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build report and update data.js
+        env:
+          FEC_API_KEY: ${{ secrets.FEC_API_KEY }}
+        run: python3 tools/fec_pipeline.py --write
+      - name: Open pull request with the refresh
+        uses: peter-evans/create-pull-request@v6
+        with:
+          branch: fec-refresh
+          title: "FEC data refresh"
+          commit-message: "Refresh money database from FEC filings"
+          body: |
+            Automated quarterly refresh from FEC filings.
+            Review tools/fec_report.csv in this PR for per-member deltas and
+            unmatched candidates before merging.
+          add-paths: |
+            assets/data.js
+            tools/fec_report.csv
