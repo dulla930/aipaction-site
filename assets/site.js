@@ -83,10 +83,14 @@
   });
 
   /* ---------- data helpers ---------- */
+  const CROWS = window.AIP.candidates || [];
   const enriched = ROWS.map((r,i)=>({
-    name:r[0], party:r[1], state:r[2], seat:r[3], amount:r[4], clean:r[5]===1, idx:i
-  }));
-  const ranked = enriched.filter(m=>typeof m.amount === "number")
+    name:r[0], party:r[1], state:r[2], seat:r[3], amount:r[4], clean:r[5]===1, cand:false, idx:i
+  })).concat(CROWS.map((r,i)=>({
+    name:r[0], party:r[1], state:r[2], seat:r[3], amount:r[4], clean:r[5]===1, cand:true, idx:ROWS.length+i
+  })));
+  // rank sitting members only — candidates are listed, not ranked
+  const ranked = enriched.filter(m=>!m.cand && typeof m.amount === "number")
     .slice().sort((a,b)=>b.amount-a.amount);
   ranked.forEach((m,i)=> m.rank = i+1);
   window.AIP.enriched = enriched;
@@ -119,8 +123,9 @@
       if (q.value && !(m.name.toLowerCase().includes(q.value.toLowerCase()) || m.state.toLowerCase()===q.value.toLowerCase() || m.seat.toLowerCase().includes(q.value.toLowerCase()))) return false;
       if (fParty.value && m.party!==fParty.value) return false;
       if (fState.value && m.state!==fState.value) return false;
-      if (fSeat.value==="SEN" && m.seat!=="SEN") return false;
-      if (fSeat.value==="HOUSE" && m.seat==="SEN") return false;
+      if (fSeat.value==="SEN" && (m.seat!=="SEN" || m.cand)) return false;
+      if (fSeat.value==="HOUSE" && (m.seat==="SEN" || m.cand)) return false;
+      if (fSeat.value==="CAND" && !m.cand) return false;
       return true;
     });
     list.sort((a,b)=>{
@@ -142,7 +147,7 @@
       else amtCell = `<td class="amt ${m.amount>=500000?"hot":""}">${fmt$(m.amount)}</td>`;
       return `<tr>
         <td class="rank">${m.rank?("#"+m.rank):"–"}</td>
-        <td><strong>${m.name}</strong></td>
+        <td><strong>${m.name}</strong>${m.cand?` <span class="tag" style="border-color:var(--gold);color:var(--gold)">2026 candidate</span>`:""}</td>
         <td><span class="tag ${m.party.toLowerCase()}">${m.party}</span></td>
         <td>${seatLabel(m)}</td>
         ${amtCell}
@@ -375,9 +380,9 @@
 
     // seat lines (Oswald 600, letter-spaced, --gray-200) — fixed y
     const isSen = m.seat==="SEN";
-    const inDataset = !!PHOTOS[`${m.name}|${m.state}|${m.seat}`];
-    const role = isSen ? (inDataset ? "U.S. SENATOR" : "U.S. SENATE CANDIDATE")
-                       : (inDataset ? "U.S. REPRESENTATIVE" : "U.S. HOUSE CANDIDATE");
+    const isCand = !!m.cand;
+    const role = isSen ? (isCand ? "U.S. SENATE CANDIDATE" : "U.S. SENATOR")
+                       : (isCand ? "U.S. HOUSE CANDIDATE" : "U.S. REPRESENTATIVE");
     const distNo = !isSen && m.seat.split("-")[1];
     const line2 = STATES[m.state].toUpperCase() + (isSen ? "" : (distNo==="AL" ? " — AT LARGE" : " — DISTRICT " + parseInt(distNo,10)));
     ctx.fillStyle = GRAY;
