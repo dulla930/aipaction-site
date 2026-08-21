@@ -618,7 +618,7 @@ window.AIP = {
     ["Joanna Mendoza","D","AZ","AZ-06",81516],
     ["Mike McGuire","D","CA","CA-01",0],
     ["Scott Wiener","D","CA","CA-11",61605],
-    ["Melissa Hernandez","D","CA","CA-14",6379454],
+    ["Melissa Hernandez","D","CA","CA-14",null],   // downgraded 8/20/26: could not reproduce a published $6.4M figure from FEC aggregates — see Receipts
     ["Hilda Solis","D","CA","CA-38",3515],
     ["Marni von Wilpert","D","CA","CA-48",2004008],
     ["Houston Gaines","R","GA","GA-10",15500],
