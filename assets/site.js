@@ -50,6 +50,9 @@
       <p><a href="receipts.html">Receipts</a></p>
       <p><a href="take-action.html">Take Action</a></p>
       <p><a href="mailto:${C.email}">${C.email}</a></p>
+      <p style="margin-top:12px;font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--ink-meta)">Card tools</p>
+      <p><a href="matchup.html">Matchup Maker</a></p>
+      <p><a href="batch.html">Card Factory</a></p>
     </div>
     <div style="max-width:320px">
       <p>Money figures are compiled from <a href="${M.sourceUrl}" target="_blank" rel="noopener">Federal Election Commission</a> filings (as of ${M.asOf}). AIP challenges policy and money in politics, never any people or faith.</p>
