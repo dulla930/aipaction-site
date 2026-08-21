@@ -95,6 +95,16 @@
   ranked.forEach((m,i)=> m.rank = i+1);
   window.AIP.enriched = enriched;
 
+  /* ---------- aggregates (computed from data so they never go stale) ---------- */
+  const memberTotal = enriched.filter(m=>!m.cand && typeof m.amount==="number").reduce((s,m)=>s+m.amount,0);
+  const candTotal   = enriched.filter(m=> m.cand && typeof m.amount==="number").reduce((s,m)=>s+m.amount,0);
+  window.AIP.totals = { memberTotal, candTotal };
+  const setTxt = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+  setTxt("lobbyTotal", "$" + (memberTotal/1e6).toFixed(0) + " million");
+  setTxt("candTotal", "$" + (candTotal/1e6).toFixed(0) + " million");
+  setTxt("memberCount", String(enriched.filter(m=>!m.cand).length));
+  setTxt("candCount", String(enriched.filter(m=>m.cand).length));
+
   /* ---------- homepage top-10 ---------- */
   const topEl = $("#topTen");
   if (topEl){
