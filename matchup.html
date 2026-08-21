@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Matchup Maker — AIP (internal)</title>
+<meta name="robots" content="noindex,nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;700;800&family=Oswald:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<link rel="icon" type="image/png" href="assets/logo-mark.png">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body data-page="">
+
+<section class="hero" style="padding-bottom:36px">
+  <div class="wrap">
+    <p class="kicker">Internal tool</p>
+    <h1>Matchup <span class="accent">maker.</span></h1>
+    <p class="lead sub">Two people, one seat, two prices. Pick any two from the database — incumbent vs challenger is the classic — and generate a head-to-head card.</p>
+  </div>
+</section>
+
+<section style="padding-top:32px">
+  <div class="wrap">
+    <div class="controls">
+      <input id="qa" type="search" placeholder="Left side (e.g. Gallrein)…" list="peopleList">
+      <input id="qb" type="search" placeholder="Right side (e.g. Massie)…" list="peopleList">
+      <input id="raceLabel" type="search" placeholder="Race label (auto if blank)" style="max-width:260px">
+      <button class="btn" id="go">Generate</button>
+    </div>
+    <datalist id="peopleList"></datalist>
+    <p class="dim" id="status">Pick two names. The dropdown searches all 600+ tracked members and candidates.</p>
+    <div style="max-width:640px;margin-top:20px">
+      <canvas id="mCanvas" width="2160" height="2160" style="width:100%;border:1px solid var(--line)"></canvas>
+      <div class="btnrow">
+        <button class="btn" id="dl">Download PNG</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script src="assets/data.js"></script>
+<script src="assets/photos.js"></script>
+<script>
+(function(){
+  const $ = s => document.querySelector(s);
+  const C = window.AIP.config, PHOTOS = window.AIP_PHOTOS || {};
+  const ROWS = window.AIP.members.map(r=>({name:r[0],party:r[1],state:r[2],seat:r[3],amount:r[4],clean:r[5]===1,cand:false}))
+    .concat(window.AIP.candidates.map(r=>({name:r[0],party:r[1],state:r[2],seat:r[3],amount:r[4],clean:r[5]===1,cand:true})));
+  const STATES = {AL:"Alabama",AK:"Alaska",AZ:"Arizona",AR:"Arkansas",CA:"California",CO:"Colorado",CT:"Connecticut",DE:"Delaware",FL:"Florida",GA:"Georgia",HI:"Hawaii",ID:"Idaho",IL:"Illinois",IN:"Indiana",IA:"Iowa",KS:"Kansas",KY:"Kentucky",LA:"Louisiana",ME:"Maine",MD:"Maryland",MA:"Massachusetts",MI:"Michigan",MN:"Minnesota",MS:"Mississippi",MO:"Missouri",MT:"Montana",NE:"Nebraska",NV:"Nevada",NH:"New Hampshire",NJ:"New Jersey",NM:"New Mexico",NY:"New York",NC:"North Carolina",ND:"North Dakota",OH:"Ohio",OK:"Oklahoma",OR:"Oregon",PA:"Pennsylvania",RI:"Rhode Island",SC:"South Carolina",SD:"South Dakota",TN:"Tennessee",TX:"Texas",UT:"Utah",VT:"Vermont",VA:"Virginia",WA:"Washington",WV:"West Virginia",WI:"Wisconsin",WY:"Wyoming"};
+  $("#peopleList").innerHTML = ROWS.map(m=>`<option value="${m.name} (${m.seat==="SEN"?m.state+" Senate":m.seat}${m.cand?", candidate":""})">`).join("");
+
+  const RED="#EF1E20", RED_BLOOD="#A3121C", GREEN="#23C55E", GREEN_FOREST="#0C6E33";
+  const INK="#FFFFFF", GRAY="#D7DADF", DIM="#9AA0A8", BG="#08090C";
+  const FONT_D="Anton, 'Arial Narrow', sans-serif", FONT_C="Oswald, 'Arial Narrow', sans-serif";
+  const canvas = $("#mCanvas"), ctx = canvas.getContext("2d");
+  const W=2160, H=2160;
+
+  const logo = new Image(); let logoOK=false; logo.onload=()=>logoOK=true; logo.src="assets/logo-mark.png";
+
+  function findPerson(q){
+    q = q.toLowerCase().split(" (")[0].trim();
+    return ROWS.find(m=>m.name.toLowerCase()===q) || ROWS.find(m=>m.name.toLowerCase().includes(q));
+  }
+  function loadPhoto(m){
+    const rec = PHOTOS[`${m.name}|${m.state}|${m.seat}`];
+    if (!rec) return Promise.resolve(null);
+    const tryUrl = url => new Promise(res=>{
+      const img=new Image(); img.crossOrigin="anonymous";
+      const t=setTimeout(()=>res(null),6000);
+      img.onload=()=>{clearTimeout(t);res(img);}; img.onerror=()=>{clearTimeout(t);res(null);};
+      img.src=url;
+    });
+    return tryUrl(`https://unitedstates.github.io/images/congress/original/${rec[0]}.jpg`)
+      .then(i=>i||tryUrl(`https://unitedstates.github.io/images/congress/450x550/${rec[0]}.jpg`));
+  }
+  function duotone(img,sx,sy,sw,sh,dw,dh){
+    const off=document.createElement("canvas"); off.width=dw; off.height=dh;
+    const o=off.getContext("2d"); o.drawImage(img,sx,sy,sw,sh,0,0,dw,dh);
+    try{
+      const d=o.getImageData(0,0,dw,dh),p=d.data,S=[4,5,10],HL=[233,236,241];
+      for(let i=0;i<p.length;i+=4){
+        let l=(0.2126*p[i]+0.7152*p[i+1]+0.0722*p[i+2])/255;
+        l=Math.min(1,Math.max(0,(l-0.5)*1.18+0.46));
+        p[i]=S[0]+(HL[0]-S[0])*l; p[i+1]=S[1]+(HL[1]-S[1])*l; p[i+2]=S[2]+(HL[2]-S[2])*l;
+      }
+      o.putImageData(d,0,0);
+    }catch(e){}
+    return off;
+  }
+  function fit(t,maxW,px,weight,fam){ ctx.font=`${weight} ${px}px ${fam}`; while(ctx.measureText(t).width>maxW&&px>24){px-=4;ctx.font=`${weight} ${px}px ${fam}`;} return px; }
+  function roundAmt(n){
+    let step=0;
+    if(n>=1e6)step=1e5; else if(n>=1e5)step=1e4; else if(n>=1e4)step=1e3;
+    if(!step) return {text:"$"+n.toLocaleString("en-US"),plus:false};
+    const r=Math.floor(n/step)*step;
+    return {text:"$"+r.toLocaleString("en-US"),plus:r<n};
+  }
+
+  async function drawHalf(m, x0){
+    // portrait: fixed 9:11 crop, fills half width, top-anchored
+    const HW = 1080;
+    const photo = await loadPhoto(m);
+    if (photo){
+      const AR=9/11; let sw=photo.width, sh=photo.height;
+      if (sw/sh>AR) sw=Math.round(sh*AR); else sh=Math.round(sw/AR);
+      const sx=Math.round((photo.width-sw)/2), sy=Math.round((photo.height-sh)*0.25);
+      const dh=1320, dw=Math.round(dh*AR); // 1080 wide
+      const toned=duotone(photo,sx,sy,sw,sh,dw,dh);
+      ctx.drawImage(toned, x0, 300, dw, dh);
+      let g=ctx.createLinearGradient(0,1150,0,1620);
+      g.addColorStop(0,"rgba(8,9,12,0)"); g.addColorStop(1,"rgba(8,9,12,1)");
+      ctx.fillStyle=g; ctx.fillRect(x0,300,HW,1320);
+      g=ctx.createLinearGradient(x0,0,x0+90,0);
+      g.addColorStop(0,"rgba(8,9,12,.9)"); g.addColorStop(1,"rgba(8,9,12,0)");
+      ctx.fillStyle=g; ctx.fillRect(x0,300,90,1320);
+      g=ctx.createLinearGradient(x0+HW-90,0,x0+HW,0);
+      g.addColorStop(0,"rgba(8,9,12,0)"); g.addColorStop(1,"rgba(8,9,12,.9)");
+      ctx.fillStyle=g; ctx.fillRect(x0+HW-90,300,90,1320);
+    }
+    const zero = m.amount===0, none = m.amount===null;
+    const ACC = zero?GREEN:RED, SH = zero?GREEN_FOREST:RED_BLOOD;
+    const cx = x0 + HW/2;
+    ctx.textAlign="center"; ctx.textBaseline="alphabetic";
+    // name (up to 2 lines, bottom-anchored at 1560)
+    const words = m.name.toUpperCase().split(" ");
+    let l1="", l2=words.pop(); l1=words.join(" ");
+    let px=104;
+    px = Math.min(fit(l1||l2, 960, px, 400, FONT_D), fit(l2, 960, px, 400, FONT_D));
+    ctx.fillStyle=INK;
+    if (l1){ ctx.font=`400 ${px}px ${FONT_D}`; ctx.fillText(l1, cx, 1560-px*1.04); }
+    ctx.font=`400 ${px}px ${FONT_D}`; ctx.fillText(l2, cx, 1560);
+    // role
+    ctx.fillStyle=GRAY; try{ctx.letterSpacing="2px";}catch(e){}
+    ctx.font=`600 42px ${FONT_C}`;
+    const isSen=m.seat==="SEN";
+    ctx.fillText(m.cand ? (isSen?"SENATE CANDIDATE":"HOUSE CANDIDATE") + ` (${m.party})` : (isSen?"U.S. SENATOR":"U.S. REPRESENTATIVE") + ` (${m.party})`, cx, 1635);
+    try{ctx.letterSpacing="0px";}catch(e){}
+    // amount with kick shadow
+    const amt = none?{text:"NOT LISTED",plus:false}:zero?{text:"$0",plus:false}:roundAmt(m.amount);
+    const apx = fit(amt.text, 940-(amt.plus?50:0), 170, 400, FONT_D);
+    ctx.font=`400 ${apx}px ${FONT_D}`;
+    if(!none){ ctx.fillStyle=SH; ctx.fillText(amt.text, cx, 1815+6); }
+    ctx.fillStyle=none?GRAY:ACC; ctx.fillText(amt.text, cx, 1815);
+    if (amt.plus){
+      const aw=ctx.measureText(amt.text).width;
+      ctx.font=`400 ${Math.round(apx*0.4)}px ${FONT_D}`;
+      ctx.fillStyle=SH; ctx.fillText("+", cx+aw/2+30, 1815-apx*0.55+5);
+      ctx.fillStyle=ACC; ctx.fillText("+", cx+aw/2+30, 1815-apx*0.55);
+    }
+    // underline
+    ctx.fillStyle=none?"rgba(255,255,255,.25)":ACC;
+    const uw=Math.min(Math.max(ctx.measureText(amt.text).width,420),940);
+    ctx.fillRect(cx-uw/2, 1848, uw, 16);
+    ctx.textAlign="left";
+  }
+
+  async function draw(){
+    const A=findPerson($("#qa").value), B=findPerson($("#qb").value);
+    if(!A||!B){ $("#status").textContent="Couldn't find one of those names."; return; }
+    $("#status").textContent=`Rendering ${A.name} vs ${B.name}…`;
+    try{ await document.fonts.load("400 150px Anton"); await document.fonts.load("600 56px Oswald"); }catch(e){}
+    ctx.clearRect(0,0,W,H);
+    ctx.fillStyle=BG; ctx.fillRect(0,0,W,H);
+    // header: race label + logo
+    const auto = A.seat===B.seat && A.state===B.state
+      ? (A.seat==="SEN" ? STATES[A.state].toUpperCase()+" — U.S. SENATE" : STATES[A.state].toUpperCase()+" — DISTRICT "+(A.seat.split("-")[1]==="AL"?"AT LARGE":parseInt(A.seat.split("-")[1],10)))
+      : "";
+    const label = ($("#raceLabel").value || auto || "HEAD TO HEAD").toUpperCase();
+    if (logoOK) ctx.drawImage(logo, W/2-80, 52, 160, 160);
+    ctx.textAlign="center"; ctx.fillStyle=INK;
+    try{ctx.letterSpacing="4px";}catch(e){}
+    ctx.font=`600 54px ${FONT_C}`; ctx.fillText(label, W/2, 282);
+    try{ctx.letterSpacing="0px";}catch(e){}
+    // halves
+    await drawHalf(A, 0);
+    await drawHalf(B, 1080);
+    // center divider + VS
+    ctx.fillStyle="rgba(255,255,255,.14)"; ctx.fillRect(W/2-2, 320, 4, 1280);
+    ctx.beginPath(); ctx.arc(W/2, 900, 110, 0, Math.PI*2);
+    ctx.fillStyle=BG; ctx.fill();
+    ctx.lineWidth=8; ctx.strokeStyle=RED; ctx.stroke();
+    ctx.textAlign="center"; ctx.fillStyle=INK;
+    ctx.font=`400 100px ${FONT_D}`; ctx.fillText("VS", W/2, 935);
+    // statement
+    ctx.fillStyle=INK; try{ctx.letterSpacing="2px";}catch(e){}
+    ctx.font=`700 70px ${FONT_C}`;
+    ctx.fillText("RECEIVED FROM THE ISRAELI WAR LOBBY", W/2, 1935);
+    try{ctx.letterSpacing="0px";}catch(e){}
+    // handle + source + disclaimer
+    ctx.fillStyle=INK; try{ctx.letterSpacing="6px";}catch(e){}
+    ctx.font=`400 48px ${FONT_D}`; ctx.fillText(C.handle, W/2, 2010);
+    try{ctx.letterSpacing="0px";}catch(e){}
+    ctx.fillStyle=DIM; ctx.font=`italic 400 38px ${FONT_C}`;
+    ctx.fillText("Source: FEC career totals", W/2, 2065);
+    ctx.fillStyle=GRAY; ctx.font=`400 33px ${FONT_C}`;
+    ctx.fillText(C.disclaimer, W/2, 2125);
+    ctx.textAlign="left";
+    $("#status").textContent=`Done: ${A.name} vs ${B.name}.`;
+    canvas.dataset.fname = `aip-vs-${A.name}-${B.name}`.toLowerCase().replace(/[^a-z]+/g,"-");
+  }
+
+  $("#go").addEventListener("click", draw);
+  $("#dl").addEventListener("click", ()=>{
+    const a=document.createElement("a");
+    a.download=(canvas.dataset.fname||"aip-matchup")+".png";
+    a.href=canvas.toDataURL("image/png"); a.click();
+  });
+})();
+</script>
+</body>
+</html>
